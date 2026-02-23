@@ -17,6 +17,7 @@ import com.example.mangxahoi.Mapper.ImageMapper;
 import com.example.mangxahoi.Mapper.PostMapper;
 import com.example.mangxahoi.Repository.*;
 import com.example.mangxahoi.Service.AuthService;
+import com.example.mangxahoi.Service.Cache.UserProfileCacheService;
 import com.example.mangxahoi.Service.ImageService;
 import com.example.mangxahoi.Service.Search.SearchRenderService;
 import com.example.mangxahoi.Service.Search.SearchService;
@@ -51,6 +52,7 @@ public class UserServiceImpl implements UserService {
     private final SearchRenderService searchRenderService;
     private final SearchService searchService;
     private final UpsertService upsertService;
+    private final UserProfileCacheService userProfileCacheService;
     @Value("${app.default.avatar.male}")
     private String maleDefaultAvatar;
 
@@ -67,7 +69,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
     private final ImageService imageService;
-    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, RoleRepository roleRepository, PostRepository postRepository, ImageService imageService , AuthService authService, FriendRepository friendRepository, ImageMapper imageMapper, ImageRepository imageRepository, PostMapper postMapper, FeedItemRepository feedItemRepository, SearchRenderService searchRenderService, SearchService searchService, UpsertService upsertService) {
+    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, RoleRepository roleRepository, PostRepository postRepository, ImageService imageService , AuthService authService, FriendRepository friendRepository, ImageMapper imageMapper, ImageRepository imageRepository, PostMapper postMapper, FeedItemRepository feedItemRepository, SearchRenderService searchRenderService, SearchService searchService, UpsertService upsertService, UserProfileCacheService userProfileCacheService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.roleRepository = roleRepository;
@@ -82,6 +84,7 @@ public class UserServiceImpl implements UserService {
         this.searchRenderService = searchRenderService;
         this.searchService = searchService;
         this.upsertService = upsertService;
+        this.userProfileCacheService = userProfileCacheService;
     }
 
 
@@ -132,6 +135,7 @@ public class UserServiceImpl implements UserService {
         }
         userRepository.save(userEntity);
 
+        userProfileCacheService.updateProfile(userProfileCacheService.fromEntity(userEntity));
         // tạo image
         ImageEntity imageEntity = new ImageEntity();
         imageEntity.setImageUrl(imageUrl);
@@ -165,16 +169,8 @@ public class UserServiceImpl implements UserService {
     public UserProfileResponse getUserProfile(Long id) {
         UserEntity user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        String avatarUrl = ServletUriComponentsBuilder
-                .fromCurrentContextPath()
-                .path("/uploads/")
-                .path(user.getAvatar())
-                .toUriString();
-        String coverPhotoUrl = ServletUriComponentsBuilder
-                .fromCurrentContextPath()
-                .path("/uploads/")
-                .path(user.getCoverPhoto())
-                .toUriString();
+        String avatarUrl = imageService.buildImageUrl(user.getAvatar());
+        String coverPhotoUrl = imageService.buildImageUrl(user.getCoverPhoto());
         String fullName = user.getFullName();
         String username = user.getUsername();
         Long countFriend = friendRepository.countFriendsByUserId(user.getId());

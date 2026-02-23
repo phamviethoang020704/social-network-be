@@ -1,13 +1,11 @@
 package com.example.mangxahoi.Controller.User;
 
-import com.example.mangxahoi.DTO.InfoUser.AddressDTO;
-import com.example.mangxahoi.DTO.InfoUser.AvatarUser;
-import com.example.mangxahoi.DTO.InfoUser.ChangeImage;
-import com.example.mangxahoi.DTO.InfoUser.PersonalDetails;
+import com.example.mangxahoi.DTO.InfoUser.*;
 import com.example.mangxahoi.DTO.Response.*;
 import com.example.mangxahoi.DTO.UserMeDTO;
 import com.example.mangxahoi.Entity.UserEntity;
 import com.example.mangxahoi.Repository.UserRepository;
+import com.example.mangxahoi.Service.Cache.UserProfileCacheService;
 import com.example.mangxahoi.Service.FeedItemService;
 import com.example.mangxahoi.Service.Impl.UserServiceImpl;
 import com.example.mangxahoi.Service.IntroService;
@@ -36,6 +34,7 @@ public class UserController {
     private final UserRepository userRepository;
     private final IntroService introService;
     private final FeedItemService feedItemService;
+    private final UserProfileCacheService userProfileCacheService;
 
     @GetMapping("/me")
     public ResponseEntity<UserMeDTO> me(Authentication authentication) {
@@ -109,11 +108,18 @@ public class UserController {
                 introService.getMutualFriends(userId, authentication.getName())
         );
     }
+    //lấy ra hết ảnh user
     @GetMapping("/{userId}/images")
     public ResponseEntity<List<ImageResponse>> getAllImages(@PathVariable Long userId) {
         return ResponseEntity.ok(
                 introService.getAllImagesByUser(userId)
         );
+    }
+
+    //lấy ra avatar,fullName,coverPhoto
+    @GetMapping("/{userId}/basic-information")
+    public UserProfileCache getUserProfileCache(@PathVariable Long userId) {
+        return userProfileCacheService.getProfile(userId);
     }
 
     //thay đổi ảnh đại diện, ảnh bìa

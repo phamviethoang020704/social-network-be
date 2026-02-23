@@ -12,6 +12,7 @@ import com.example.mangxahoi.Repository.RoleRepository;
 import com.example.mangxahoi.Repository.UserRepository;
 import com.example.mangxahoi.Security.CustomUserDetails;
 import com.example.mangxahoi.Security.JwtUtil;
+import com.example.mangxahoi.Service.Cache.UserProfileCacheService;
 import com.example.mangxahoi.Service.Search.UpsertService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,6 +22,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +30,7 @@ public class AuthService {
     private final PostRepository postRepository;
     private final ImageRepository imageRepository;
     private final UpsertService searchService;
+    private final UserProfileCacheService userProfileCacheService;
     @Value("${app.default.avatar.male}")
     private String maleDefaultAvatar;
 
@@ -42,6 +45,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
+    @Transactional
     public void register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new IllegalArgumentException("Username đã tồn tại");
@@ -70,6 +74,10 @@ public class AuthService {
                 // ===== COVER PHOTO DEFAULT =====
         user.setCoverPhoto(coverPhotoDefault);
         UserEntity saveUser = userRepository.save(user);
+
+        //put cache
+        userProfileCacheService.updateProfile(userProfileCacheService.fromEntity(saveUser));
+
         searchService.upsert(SearchType.USER, saveUser.getId(), saveUser.getFullName());
     }
 
