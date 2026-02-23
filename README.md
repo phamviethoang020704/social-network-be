@@ -20,6 +20,7 @@
 - Thực hiện các tương tác người dùng như Kết bạn, thả cảm xúc, bình luận, chia sẻ, tạo bài đăng
 - Nhắn tin realtime bằng WebSocket
 - Tìm kiếm nâng cao: Full-text + fuzzy search (gợi ý realtime) bằng PostgreSQL với TSVECTOR/GIN (full-text search) + pg_trgm (similarity/fuzzy matching) + unaccent (chuẩn hóa tiếng Việt).
+- Tích hợp Redis (chạy bằng Docker) theo mô hình Cache Aside để tối ưu truy vấn hồ sơ người dùng và giảm tải cơ sở dữ liệu.
 
 ## Kiến trúc hệ thống
 Dự án áp dụng mô hình phân tầng (Layered Architecture):
