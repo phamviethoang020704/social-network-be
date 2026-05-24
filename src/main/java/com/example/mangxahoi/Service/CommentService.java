@@ -3,10 +3,7 @@ package com.example.mangxahoi.Service;
 import com.example.mangxahoi.DTO.Request.CommentRequest;
 import com.example.mangxahoi.DTO.Response.CommentResponse;
 import com.example.mangxahoi.DTO.Response.DeleteCommentResponse;
-import com.example.mangxahoi.Entity.CommentEntity;
-import com.example.mangxahoi.Entity.LikeEntity;
-import com.example.mangxahoi.Entity.PostEntity;
-import com.example.mangxahoi.Entity.UserEntity;
+import com.example.mangxahoi.Entity.*;
 import com.example.mangxahoi.Enums.CommentTargetType;
 import com.example.mangxahoi.Enums.LikeTargetType;
 import com.example.mangxahoi.Enums.ReactionType;
@@ -36,12 +33,14 @@ public class CommentService {
     private final ImageService imageService;
     private final LikeService likeService;
     private final PostRepository postRepository;
+    private final NotificationService notificationService;
+    private final ShareRepository shareRepository;
     @Value("${app.upload.dir}")
     private String uploadDir;
     private final UserRepository userRepository;
     private final CommentRepository commentRepository;
 
-    public CommentService(UserRepository userRepository, CommentRepository commentRepository, LikeRepository likeRepository, ImageRepository imageRepository, ImageService imageService, LikeService likeService, PostRepository postRepository) {
+    public CommentService(UserRepository userRepository, CommentRepository commentRepository, LikeRepository likeRepository, ImageRepository imageRepository, ImageService imageService, LikeService likeService, PostRepository postRepository, NotificationService notificationService, ShareRepository shareRepository) {
         this.userRepository = userRepository;
         this.commentRepository = commentRepository;
         this.likeRepository = likeRepository;
@@ -49,6 +48,8 @@ public class CommentService {
         this.imageService = imageService;
         this.likeService = likeService;
         this.postRepository = postRepository;
+        this.notificationService = notificationService;
+        this.shareRepository = shareRepository;
     }
     //tạo hoặc sửa comment
     public CommentResponse createOrUpdateComment(CommentRequest request, MultipartFile image, String username) throws IOException {
@@ -109,6 +110,55 @@ public class CommentService {
             commentEntity.setParent(parent);
         }
         CommentEntity saveCmt = commentRepository.save(commentEntity);
+        // Thông báo khi bình luận vào bài viết
+        if (
+                !isUpdate
+                        && request.parentId() == null
+                        && request.commentTargetType() == CommentTargetType.POST
+        ) {
+            PostEntity post = postRepository.findById(request.targetId())
+                    .orElseThrow(() -> new RuntimeException("post not found"));
+
+            notificationService.createPostComment(
+                    userEntity,
+                    post.getUserEntity(),
+                    post.getId(),
+                    saveCmt.getId()
+            );
+        }
+
+        // Thông báo khi bình luận vào bài share
+        if (
+                !isUpdate
+                        && request.parentId() == null
+                        && request.commentTargetType() == CommentTargetType.SHARE
+        ) {
+            ShareEntity share = shareRepository.findById(request.targetId())
+                    .orElseThrow(() -> new RuntimeException("share not found"));
+
+            notificationService.createShareComment(
+                    userEntity,
+                    share.getUserEntity(),
+                    share.getId(),
+                    saveCmt.getId()
+            );
+        }
+
+        // Thông báo khi trả lời / nhắc đến người khác trong bình luận
+        if (
+                !isUpdate
+                        && saveCmt.getParent() != null
+                        && saveCmt.getReplyId() != null
+        ) {
+            notificationService.createCommentMention(
+                    userEntity,
+                    saveCmt.getReplyId(),
+                    saveCmt.getCommentTargetType(),
+                    saveCmt.getTargetId(),
+                    saveCmt.getId(),
+                    saveCmt.getParent().getId()
+            );
+        }
         //trả về
         Long countLike = likeRepository.countByLikeTargetTypeAndTargetId(LikeTargetType.COMMENT, saveCmt.getId());
         boolean isLiked = likeRepository.existsByUserEntityAndTargetIdAndLikeTargetType(userEntity, saveCmt.getId(), LikeTargetType.COMMENT);
@@ -354,5 +404,57 @@ public class CommentService {
                 catch (Exception ignored) {}
             }
         }
+    }
+
+    public CommentResponse getCommentById(Long commentId, String username) {
+        UserEntity userEntity = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("user not found"));
+
+        CommentEntity c = commentRepository.findById(commentId)
+                .orElseThrow(() -> new RuntimeException("comment not found"));
+
+        Long likeCount = likeRepository.countByLikeTargetTypeAndTargetId(
+                LikeTargetType.COMMENT,
+                c.getId()
+        );
+
+        boolean isLiked = likeRepository.existsByUserEntityAndTargetIdAndLikeTargetType(
+                userEntity,
+                c.getId(),
+                LikeTargetType.COMMENT
+        );
+
+        ReactionType reactionType = null;
+
+        if (isLiked) {
+            reactionType = likeRepository
+                    .findByUserEntityAndLikeTargetTypeAndTargetId(
+                            userEntity,
+                            LikeTargetType.COMMENT,
+                            c.getId()
+                    )
+                    .orElseThrow()
+                    .getReactionType();
+        }
+
+        return new CommentResponse(
+                c.getId(),
+                c.getContent(),
+                imageService.buildImageUrl(c.getImageUrl()),
+                imageService.buildImageUrl(c.getUserEntity().getAvatar()),
+                c.getUserEntity().getFullName(),
+                null,
+                likeCount,
+                c.getUpdatedAt(),
+                commentRepository.countByParentId(c.getId()),
+                c.getParent() != null ? c.getParent().getId() : null,
+                isLiked,
+                reactionType,
+                likeService.getFullReaction(c.getId(), LikeTargetType.COMMENT),
+                c.getReplyId() != null ? c.getReplyId().getFullName() : null,
+                c.getTargetId(),
+                c.getUserEntity().getId(),
+                userEntity.getId()
+        );
     }
 }

@@ -2,6 +2,7 @@ package com.example.mangxahoi.Controller;
 
 import com.example.mangxahoi.DTO.Request.ShareRequest;
 import com.example.mangxahoi.DTO.Request.UpdateCaptionShare;
+import com.example.mangxahoi.DTO.Response.PostResponse;
 import com.example.mangxahoi.DTO.Response.ShareResponse;
 import com.example.mangxahoi.Service.ShareService;
 import lombok.AllArgsConstructor;
@@ -43,4 +44,12 @@ public class ShareController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/share/{shareId}")
+    public ResponseEntity<ShareResponse> getShareByShareId(
+            @PathVariable Long shareId,
+            Authentication authentication
+    ) {
+        ShareResponse response = shareService.getShareByShareId(shareId, authentication.getName());
+        return ResponseEntity.ok(response);
+    }
 }

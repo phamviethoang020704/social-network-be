@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
         name = "likes",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        columnNames = {"user_id", "target_type", "target_id"}
+                        columnNames = {"user_id", "like_target_type", "target_id"}
                 )
         }
 )

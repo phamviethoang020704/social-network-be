@@ -219,7 +219,13 @@ public class PostService {
 
     public PostSliceResponse getPostFromGroupSlice(Long groupId, int size, LocalDateTime cursorTime, Long cursorId) {
         Pageable pageable = PageRequest.of(0, size + 1);
-        List<PostEntity> rows = postRepository.findGroupPostSlice(groupId, cursorTime, cursorId, pageable);
+        List<PostEntity> rows;
+
+        if (cursorTime == null || cursorId == null) {
+            rows = postRepository.findFirstGroupPostSlice(groupId, pageable);
+        } else {
+            rows = postRepository.findGroupPostSliceAfterCursor(groupId, cursorTime, cursorId, pageable);
+        }
 
         boolean hasNext = rows.size() > size;
         if (hasNext) rows = rows.subList(0, size);
@@ -256,6 +262,16 @@ public class PostService {
         );
     }
 
+    public PostResponse getPostByPostId(Long postId, String username){
+        userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        PostEntity post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+
+        return postMapper.toResponse(post);
+
+    }
     //xóa avatar hoặc coverPhoto
     @Transactional
     public void deletePostProfile(EditContent request, String username){
@@ -333,4 +349,6 @@ public class PostService {
 
         commentRepository.deleteByTargetIdsAndType(shareIds, CommentTargetType.SHARE);
     }
+
+
 }

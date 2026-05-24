@@ -42,16 +42,25 @@ public interface PostRepository extends JpaRepository<PostEntity, Long> {
 
     //lấy ra tất cả post theo groupId
     @Query("""
-        select p from PostEntity p
-        where p.groupEntity.id = :groupId
-          and (
-               :cursorTime is null
-               or p.updatedAt < :cursorTime
-               or (p.updatedAt = :cursorTime and p.id < :cursorId)
-          )
-        order by p.updatedAt desc, p.id desc
-    """)
-    List<PostEntity> findGroupPostSlice(
+    select p from PostEntity p
+    where p.groupEntity.id = :groupId
+    order by p.updatedAt desc, p.id desc
+""")
+    List<PostEntity> findFirstGroupPostSlice(
+            @Param("groupId") Long groupId,
+            Pageable pageable
+    );
+
+    @Query("""
+    select p from PostEntity p
+    where p.groupEntity.id = :groupId
+      and (
+           p.updatedAt < :cursorTime
+           or (p.updatedAt = :cursorTime and p.id < :cursorId)
+      )
+    order by p.updatedAt desc, p.id desc
+""")
+    List<PostEntity> findGroupPostSliceAfterCursor(
             @Param("groupId") Long groupId,
             @Param("cursorTime") LocalDateTime cursorTime,
             @Param("cursorId") Long cursorId,

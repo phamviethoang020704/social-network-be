@@ -19,12 +19,14 @@ import com.example.mangxahoi.Repository.Projection.Reaction;
 import com.example.mangxahoi.Service.ImageService;
 import com.example.mangxahoi.Service.LikeService;
 import jakarta.transaction.Transactional;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@AllArgsConstructor
 public class SearchRenderService {
 
     private final SearchQueryService searchQueryService;
@@ -41,34 +43,8 @@ public class SearchRenderService {
     private final GroupMemberRepository groupMemberRepository;
 
     private final PostMapper postMapper;
+    private final RecentSearchService recentSearchService;
 
-    public SearchRenderService(SearchQueryService searchQueryService,
-                               UserRepository userRepository,
-                               GroupRepository groupRepository,
-                               PostRepository postRepository,
-                               ShareRepository shareRepository,
-                               ImageRepository imageRepository,
-                               CommentRepository commentRepository,
-                               LikeRepository likeRepository,
-                               LikeService likeService,
-                               ImageService imageService,
-                               FriendRepository friendRepository,
-                               GroupMemberRepository groupMemberRepository,
-                               PostMapper postMapper) {
-        this.searchQueryService = searchQueryService;
-        this.userRepository = userRepository;
-        this.groupRepository = groupRepository;
-        this.postRepository = postRepository;
-        this.shareRepository = shareRepository;
-        this.imageRepository = imageRepository;
-        this.commentRepository = commentRepository;
-        this.likeRepository = likeRepository;
-        this.likeService = likeService;
-        this.imageService = imageService;
-        this.friendRepository = friendRepository;
-        this.groupMemberRepository = groupMemberRepository;
-        this.postMapper = postMapper;
-    }
 
     @Transactional
     public SearchListResponse search(Long currentUserId, String q, String type, int page, int size) {
@@ -77,7 +53,7 @@ public class SearchRenderService {
         if (query.isEmpty()) {
             return new SearchListResponse(query, type, Map.of(), page, size, List.of());
         }
-
+        recentSearchService.record(currentUserId, query);
         int offset = page * size;
 
         Map<String, Long> counts = searchQueryService.countByType(query);

@@ -1,51 +1,59 @@
 package com.example.mangxahoi.Security;
 
-import com.example.mangxahoi.Entity.UserEntity;
+
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-
-import java.security.Key;
-import java.util.Date;
-
+import io.jsonwebtoken.security.Keys;
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
-
-import static java.security.KeyRep.Type.SECRET;
+import java.util.UUID;
 
 @Component
 public class JwtUtil {
+    @Value("${jwt.secret}")
+    private String secret;
 
-    private final SecretKey key =
-            Keys.secretKeyFor(SignatureAlgorithm.HS256);
+    private SecretKey getSecretKey(){
+        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    }
 
-    public String generateToken(UserEntity user) {
+    public String generateToken(String username){
         return Jwts.builder()
-                .setSubject(user.getUsername())
-                .claim("role", user.getRoleEntity().getName())
+                .setSubject(username)
+                .claim("type", "access_token")
                 .setIssuedAt(new Date())
-                .setExpiration(
-                        new Date(System.currentTimeMillis() + 3600000)
-                )
-                .signWith(key)
+                .setExpiration(new Date(System.currentTimeMillis() + 900000))
+                .signWith(getSecretKey())
                 .compact();
     }
 
-    public Claims extractClaims(String token) {
+    public String generateRefreshToken(String username){
+        return Jwts.builder()
+                .setSubject(username)
+                .claim("type","refresh_token")
+                .claim("jti", UUID.randomUUID().toString())
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24 * 7))
+                .signWith(getSecretKey())
+                .compact();
+    }
+
+    public Claims extractClaims(String token){
         return Jwts.parserBuilder()
-                .setSigningKey(key)
+                .setSigningKey(getSecretKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
-    public boolean validateToken(String token) {
+    public boolean validateTokenType(String token, String expectedType) {
         try {
-            extractClaims(token);
-            return true;
-        } catch (JwtException | IllegalArgumentException e) {
+            Claims c = extractClaims(token);
+            Object type = c.get("type");
+            return expectedType.equals(type) && c.getExpiration().after(new Date());
+        } catch (Exception e) {
             return false;
         }
     }
@@ -54,8 +62,5 @@ public class JwtUtil {
         return extractClaims(token).getSubject();
     }
 
-    public String extractRole(String token) {
-        Object role = extractClaims(token).get("role");
-        return role == null ? null : role.toString();
-    }
+
 }

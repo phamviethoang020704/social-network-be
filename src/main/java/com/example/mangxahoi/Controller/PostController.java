@@ -2,6 +2,7 @@ package com.example.mangxahoi.Controller;
 
 import com.example.mangxahoi.DTO.Request.PostRequest;
 import com.example.mangxahoi.DTO.EditContent;
+import com.example.mangxahoi.DTO.Response.PostResponse;
 import com.example.mangxahoi.DTO.Response.PostSliceResponse;
 import com.example.mangxahoi.Service.PostService;
 import lombok.AllArgsConstructor;
@@ -66,5 +67,13 @@ public class PostController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/post/{postId}")
+    public ResponseEntity<PostResponse> getPostByPostId(
+            @PathVariable Long postId,
+            Authentication authentication
+    ) {
+        PostResponse response = postService.getPostByPostId(postId, authentication.getName());
+        return ResponseEntity.ok(response);
+    }
 }
 

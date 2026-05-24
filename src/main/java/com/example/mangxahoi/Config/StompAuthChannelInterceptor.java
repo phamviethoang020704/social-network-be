@@ -28,7 +28,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             Object tokenObj = accessor.getSessionAttributes().get(JwtHandshakeInterceptor.TOKEN_ATTR);
 
-            if (tokenObj instanceof String token && jwtUtil.validateToken(token)) {
+            if (tokenObj instanceof String token && jwtUtil.validateTokenType(token,"access_token")) {
                 String username = jwtUtil.extractClaims(token).getSubject();
 
                 accessor.setUser(new UsernamePasswordAuthenticationToken(username, null, List.of()));

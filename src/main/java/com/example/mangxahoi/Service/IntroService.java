@@ -90,7 +90,13 @@ public class IntroService  {
         UserEntity userEntity = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("user not found"));
 
         Pageable pageable = PageRequest.of(0, size + 1);
-        List<FeedItemEntity> rows = feedItemRepository.findFeedSlice(userId, cursorTime, cursorId, pageable);
+        List<FeedItemEntity> rows;
+
+        if (cursorTime == null || cursorId == null) {
+            rows = feedItemRepository.findAllFeedFirstPage(pageable);
+        } else {
+            rows = feedItemRepository.findAllFeedNextPage(cursorTime, cursorId, pageable);
+        }
 
         boolean hasNext = rows.size() > size;
         if (hasNext) rows = rows.subList(0, size);

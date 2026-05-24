@@ -53,7 +53,13 @@ public class FeedItemService {
         String username = authentication.getName();
         UserEntity userEntity = userRepository.findByUsername(username).orElse(null);
         Pageable pageable = PageRequest.of(0, size + 1);
-        List<FeedItemEntity> rows = feedItemRepository.findAllFeed(cursorTime, cursorId, pageable);
+        List<FeedItemEntity> rows;
+
+        if (cursorTime == null || cursorId == null) {
+            rows = feedItemRepository.findAllFeedFirstPage(pageable);
+        } else {
+            rows = feedItemRepository.findAllFeedNextPage(cursorTime, cursorId, pageable);
+        }
 
         boolean hasNext = rows.size() > size;
         if (hasNext) rows = rows.subList(0, size);

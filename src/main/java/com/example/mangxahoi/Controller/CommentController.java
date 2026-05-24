@@ -60,4 +60,12 @@ public class CommentController {
         );
     }
 
+    @GetMapping("/{commentId}")
+    public CommentResponse getCommentById(
+            @PathVariable Long commentId,
+            Authentication authentication
+    ) {
+        return commentService.getCommentById(commentId, authentication.getName());
+    }
+
 }

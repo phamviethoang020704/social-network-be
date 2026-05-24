@@ -9,6 +9,7 @@ import com.example.mangxahoi.Mapper.ImageMapper;
 import com.example.mangxahoi.Repository.*;
 import com.example.mangxahoi.Service.Search.UpsertService;
 import jakarta.transaction.Transactional;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@AllArgsConstructor
 public class ShareService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
@@ -28,20 +30,8 @@ public class ShareService {
     private final LikeService likeService;
     private final ImageService imageService;
     private final UpsertService searchService;
+    private final NotificationService notificationService;
 
-    public ShareService(UserRepository userRepository, PostRepository postRepository, ImageRepository imageRepository, ShareRepository shareRepository, ImageMapper imageMapper, FeedItemRepository feedItemRepository, LikeRepository likeRepository, CommentRepository commentRepository, LikeService likeService, ImageService imageService, UpsertService searchService) {
-        this.userRepository = userRepository;
-        this.postRepository = postRepository;
-        this.imageRepository = imageRepository;
-        this.shareRepository = shareRepository;
-        this.imageMapper = imageMapper;
-        this.feedItemRepository = feedItemRepository;
-        this.likeRepository = likeRepository;
-        this.commentRepository = commentRepository;
-        this.likeService = likeService;
-        this.imageService = imageService;
-        this.searchService = searchService;
-    }
     @Transactional
     public void shareTarget(ShareRequest shareRequest, String username){
         UserEntity userEntity = userRepository.findByUsername(username).get();
@@ -66,6 +56,17 @@ public class ShareService {
         shareEntity.setUserEntity(userEntity);
         ShareEntity saveShare = shareRepository.save(shareEntity);
 
+        if (shareRequest.shareType() == ShareType.POST) {
+            PostEntity postEntity = postRepository.findById(shareRequest.targetId())
+                    .orElseThrow(() -> new RuntimeException("post not found"));
+
+            notificationService.createPostShared(
+                    userEntity,
+                    postEntity.getUserEntity(),
+                    postEntity.getId(),
+                    saveShare.getId()
+            );
+        }
         FeedItemEntity  feedItemEntity = new FeedItemEntity();
         feedItemEntity.setUpdatedAt(LocalDateTime.now());
         feedItemEntity.setFeedType(FeedType.SHARE);
@@ -168,6 +169,104 @@ public class ShareService {
         commentRepository.deleteByTargetIdsAndType(List.of(shareEntity.getId()),CommentTargetType.SHARE);
 
         shareRepository.delete(shareEntity);
+    }
+
+    public ShareResponse getShareByShareId(Long shareId, String username) {
+
+        UserEntity userEntity = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        ShareEntity share = shareRepository.findById(shareId)
+                .orElseThrow(() -> new RuntimeException("share not found"));
+
+        List<ImageResponse> imagesByPost = new ArrayList<>();
+        String imageByImage = null;
+        String contentPost = null;
+
+        PostEntity postEntity = null;
+
+        if (share.getShareType() == ShareType.POST) {
+
+            postEntity = postRepository.findById(share.getTargetId())
+                    .orElseThrow(() -> new RuntimeException("Post not found"));
+
+            imagesByPost = imageMapper.toResponseList(
+                    postEntity.getImageEntity()
+            );
+
+            contentPost = postEntity.getContent();
+        }
+
+        if (share.getShareType() == ShareType.IMAGE) {
+
+            ImageEntity imageEntity = imageRepository
+                    .findById(share.getTargetId())
+                    .orElseThrow(() -> new RuntimeException("Image not found"));
+
+            imageByImage = imageService.buildImageUrl(
+                    imageEntity.getImageUrl()
+            );
+
+            postEntity = imageEntity.getPostEntity();
+        }
+
+        ReactionType reactionType = likeRepository
+                .findByUserEntityAndLikeTargetTypeAndTargetId(
+                        userEntity,
+                        LikeTargetType.SHARE,
+                        share.getId()
+                )
+                .map(LikeEntity::getReactionType)
+                .orElse(null);
+
+        return new ShareResponse(
+
+                share.getId(),
+                share.getCaption(),
+                share.getShareType(),
+                share.getTargetId(),
+                share.getUpdatedAt(),
+
+                imagesByPost,
+                contentPost,
+                imageByImage,
+
+                postEntity.getId(),
+                postEntity.getUserEntity().getId(),
+                imageService.buildImageUrl(postEntity.getUserEntity().getAvatar()),
+                postEntity.getUserEntity().getFullName(),
+                postEntity.getUpdatedAt(),
+
+                likeRepository.existsByUserEntityAndTargetIdAndLikeTargetType(
+                        userEntity,
+                        share.getId(),
+                        LikeTargetType.SHARE
+                ),
+
+                reactionType,
+
+                likeRepository.countByLikeTargetTypeAndTargetId(
+                        LikeTargetType.SHARE,
+                        share.getId()
+                ),
+
+                commentRepository.countByCommentTargetTypeAndTargetId(
+                        CommentTargetType.SHARE,
+                        share.getId()
+                ),
+
+                likeService.getFullReaction(
+                        share.getId(),
+                        LikeTargetType.SHARE
+                ),
+
+                share.getUserEntity().getId(),
+                share.getUserEntity().getFullName(),
+
+                imageService.buildImageUrl(
+                        share.getUserEntity().getAvatar()
+                )
+        );
     }
 
 }
